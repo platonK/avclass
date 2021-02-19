@@ -23,8 +23,6 @@ uncategorized_cat  = "UNC"
 SampleInfo = namedtuple('SampleInfo', 
                         ['md5', 'sha1', 'sha256', 'labels', 'vt_tags'])
 
-Tag = namedtuple('Tag', ['name', 'cat', 'path', 'prefix_l'])
-
 # AVs to use in suffix removal
 suffix_removal_av_set = {'Norman', 'Avast', 'Avira', 'Kaspersky',
                           'ESET-NOD32', 'Fortinet', 'Jiangmin', 'Comodo',
@@ -32,23 +30,48 @@ suffix_removal_av_set = {'Norman', 'Avast', 'Avira', 'Kaspersky',
                           'TrendMicro-HouseCall', 'TrendMicro',
                           'NANO-Antivirus', 'Microsoft'}
 
-def create_tag(s):
-    ''' Create a Tag from its string representation '''
-    word_list = s.strip().split(":")
-    if len(word_list) > 1:
-        name = word_list[-1].lower()
-        cat = word_list[0].upper()
-        prefix_l = [x.lower() for x in word_list[1:-1]]
-        path = cat
-        for x in prefix_l:
-            path = path + ':' + x
-        path = path + ':' + name
-    else:
-        name = word_list[0].lower()
-        cat = uncategorized_cat
-        prefix_l = []
-        path = name
-    return Tag(name, cat, path, prefix_l)
+class Tag:
+    ''' A Tag in the taxonomy '''
+    def __init__(self, s):
+        word_list = s.strip().split(":")
+        if len(word_list) > 1:
+            self._name = word_list[-1].lower()
+            self._cat = word_list[0].upper()
+            self._prefix_l = [x.lower() for x in word_list[1:-1]]
+            path = self._cat
+            for x in self._prefix_l:
+                path = path + ':' + x
+            self._path = path + ':' + self._name
+        else:
+            self._name = word_list[0].lower()
+            self._cat = uncategorized_cat
+            self._prefix_l = []
+            self._path = self._name
+
+    def __hash__(self):
+        ''' Return hash '''
+        return hash((self._path))
+
+    @property
+    def name(self):
+        ''' Return tag name '''
+        return self._name
+
+    @property
+    def cat(self):
+        ''' Return tag category '''
+        return self._cat
+
+    @property
+    def path(self):
+        ''' Return tag path '''
+        return self._path
+
+    @property
+    def prefix_l(self):
+        ''' Return tag prefix list '''
+        return self._prefix_l
+
 
 class Taxonomy:
     '''
@@ -56,17 +79,22 @@ class Taxonomy:
     '''
     def __init__(self, filepath):
         ''' Map tag.name | tag.path -> Tag '''
-        self.__tag_map = {}
+        self._tags = set()
+        self._tag_map = {}
         if filepath:
             self.read_taxonomy(filepath)
 
     def __len__(self):
         ''' Taxonomy length is the number of tags it contains '''
-        return len(self.__tag_map)//2
+        return len(self._tags)
+
+    def __iter__(self):
+        ''' Iterator over the alphabetically sorted tags in the taxonomy '''
+        return (t for t in sorted(self._tags))
 
     def is_generic(self, t):
         ''' Return true if input is generic, false otherwise '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.cat == "GEN"
         else:
@@ -74,40 +102,42 @@ class Taxonomy:
 
     def is_tag(self, t):
         ''' Return true if input is tag, false otherwise '''
-        return t in self.__tag_map
+        return t in self._tag_map
 
     def add_tag(self, s, override=False):
         ''' Add tag to taxonomy 
             If tag already exists with different path, 
               only replaces if override True '''
-        tag = create_tag(s)
-        t = self.__tag_map.get(tag.name, None)
+        tag = Tag(s)
+        t = self._tag_map.get(tag.name, None)
         if t and (t.path != tag.path):
             if (not override):
                 return
             else:
-                log.warn("[Taxonomy] Replacing %s with %s\n" % (
+                log.warning("[Taxonomy] Replacing %s with %s\n" % (
                                   t.path, tag.path))
-                del self.__tag_map[t.path]
+                del self._tag_map[t.path]
         log.debug("[Taxonomy] Adding tag %s" % s)
-        self.__tag_map[tag.name] = tag
-        self.__tag_map[tag.path] = tag
+        self._tags.add(tag)
+        self._tag_map[tag.name] = tag
+        self._tag_map[tag.path] = tag
         return
 
     def remove_tag(self, t):
         ''' Remove tag from taxonomy. Returns 1 if removed, zero if unknown '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             log.debug("[Taxonomy] Removing tag: %s" % tag.path)
-            del self.__tag_map[tag.name]
-            del self.__tag_map[tag.path]
+            del self._tag_map[tag.name]
+            del self._tag_map[tag.path]
+            self._tags.remove(tag)
             return 1
         else:
             return 0
 
     def get_category(self, t):
         ''' Return category of input tag, UNK if not a tag '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.cat
         else:
@@ -115,7 +145,7 @@ class Taxonomy:
 
     def get_path(self, t):
         ''' Return full path for given tag, or empty string if not a tag '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.path
         else:
@@ -123,7 +153,7 @@ class Taxonomy:
 
     def get_prefix_l(self, t):
         ''' Return prefix list for given tag, or empty string if not a tag '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.prefix_l
         else:
@@ -132,7 +162,7 @@ class Taxonomy:
     def get_prefix(self, t):
         ''' Return prefix string for given tag, 
             or empty string if not a tag '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.prefix_l
         else:
@@ -142,7 +172,7 @@ class Taxonomy:
         ''' Return depth of tag in taxonomy. 
             Returns zero if tag not in taxonomy. 
             A normal tag CAT:name has depth two '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return len(tag.prefix_l) + 2
         else:
@@ -150,7 +180,7 @@ class Taxonomy:
 
     def get_info(self, t):
         ''' Return (path,category) for given tag, or UNK:t if not a tag '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
             return tag.path, tag.cat
         else:
@@ -158,16 +188,16 @@ class Taxonomy:
 
     def expand(self, t):
         ''' Return list of tags in prefix list that are leaves '''
-        tag = self.__tag_map.get(t, None)
+        tag = self._tag_map.get(t, None)
         if tag:
-            return [t for t in tag.prefix_l if t in self.__tag_map]
+            return [t for t in tag.prefix_l if t in self._tag_map]
         else:
             return []
 
     def platform_tags(self): 
         ''' Returns list with platform tags in taxonomy '''
         acc = set()
-        for idx,tag in self.__tag_map.items():
+        for idx,tag in self._tag_map.items():
             if tag.path.startswith(platform_prefix):
                 acc.add(tag.name)
         return acc
@@ -204,7 +234,7 @@ class Taxonomy:
         # Open output file
         fd = open(filepath, 'w')
         # Write sorted tags
-        tag_l = sorted(self.__tag_map.items(), 
+        tag_l = sorted(self._tag_map.items(), 
                                 key=lambda item : item[1].path, 
                                 reverse=False)
         idx = 0
@@ -221,13 +251,13 @@ class Rules:
     '''
     def __init__(self, filepath):
         ''' Map src -> set(dst) '''
-        self._rmap = {}
+        self._src_map = {}
         if filepath:
             self.read_rules(filepath)
 
     def __len__(self):
         ''' Length is number of rules, i.e., number of src '''
-        return len(self._rmap)
+        return len(self._src_map)
 
     def add_rule(self, src, dst_l, overwrite=False):
         ''' Add rule. If rule exists:
@@ -239,30 +269,30 @@ class Rules:
         if (not dst_l):
             return
         log.debug("[Rules] Adding %s -> %s" % (src, dst_l))
-        src_tag = create_tag(src)
+        src_tag = Tag(src)
         if overwrite:
-            target_l = [create_tag(dst).name for dst in dst_l]
-            self._rmap[src_tag.name] = set(target_l)
+            target_l = [Tag(dst).name for dst in dst_l]
+            self._src_map[src_tag.name] = set(target_l)
         else:
-            curr_dst = self._rmap.get(src_tag.name, set())
+            curr_dst = self._src_map.get(src_tag.name, set())
             for dst in dst_l:
-                dst_tag = create_tag(dst)
+                dst_tag = Tag(dst)
                 curr_dst.add(dst_tag.name)
-            self._rmap[src_tag.name] = curr_dst
+            self._src_map[src_tag.name] = curr_dst
         return
 
     def remove_rule(self, src):
-        l = self._rmap.get(src, [])
+        l = self._src_map.get(src, [])
         if l:
             log.debug("[Rules] Removing rule: %s -> %s" % (src, l))
-            del self._rmap[src]
+            del self._src_map[src]
             return 1
         else:
             return 0
 
     def get_dst(self, src):
         ''' Returns dst list for given src, or empty list if no expansion '''
-        return list(self._rmap.get(src, []))
+        return list(self._src_map.get(src, []))
 
     def read_rules(self, filepath):
         '''Read rules from given file'''
@@ -279,7 +309,7 @@ class Rules:
         ''' Output sorted rules to given file 
             If taxonomy is provided, it outputs full tag path '''
         fd = open(filepath, 'w')
-        for src,dst_set in sorted(self._rmap.items()):
+        for src,dst_set in sorted(self._src_map.items()):
             dst_l = sorted(dst_set, reverse=False)
             if taxonomy:
                 src_path = taxonomy.get_path(src)
@@ -294,11 +324,11 @@ class Rules:
     def expand_src_destinations(self, src):
         ''' Return destination list for given src after recursively 
             following any rules for destinations '''
-        dst_set = self._rmap.get(src, set())
+        dst_set = self._src_map.get(src, set())
         out = set()
         while dst_set:
             dst = dst_set.pop()
-            l = self._rmap.get(dst, [])
+            l = self._src_map.get(dst, [])
             if l:
                 for e in l:
                     if (e not in out) and (e != dst):
@@ -310,10 +340,10 @@ class Rules:
     def expand_all_destinations(self):
         ''' Return destination list for given src after recursively 
             following any rules for destinations '''
-        src_l = self._rmap.keys()
+        src_l = self._src_map.keys()
         for src in src_l:
             dst_l = self.expand_src_destinations(src)
-            self._rmap[src] = dst_l
+            self._src_map[src] = dst_l
 
 class Tagging(Rules):
     '''
@@ -324,7 +354,9 @@ class Tagging(Rules):
 
     def validate(self, taxonomy):
         ''' Check that tags in tagging rules are in given taxonomy '''
-        for tok,tag_l in self._rmap.items():
+        for tok,tag_l in self._src_map.items():
+            if taxonomy.is_tag(tok):
+                sys.stdout.write("[Tagging] SRC %s in taxonomy\n" % tok)
             for t in tag_l:
                 if (not taxonomy.is_tag(t)):
                     sys.stdout.write("[Tagging] %s not in taxonomy\n" % t)
@@ -339,7 +371,7 @@ class Expansion(Rules):
 
     def validate(self, taxonomy):
         ''' Check that tags in expansion rules are in given taxonomy '''
-        for src,dst_set in self._rmap.items():
+        for src,dst_set in self._src_map.items():
             if (not taxonomy.is_tag(src)):
                 sys.stdout.write("[Expansion] %s not in taxonomy\n" % src)
             for dst in dst_set:
@@ -461,7 +493,7 @@ class AvLabels:
         return False
 
     @staticmethod
-    def __remove_suffixes(av_name, label):
+    def _remove_suffixes(av_name, label):
         '''Remove AV specific suffixes from given label
            Returns updated label'''
 
@@ -537,7 +569,7 @@ class AvLabels:
         return tags
 
 
-    def __expand(self, tag_set):
+    def _expand(self, tag_set):
         ''' Return expanded set of tags '''
         ret = set()
         for t in tag_set:
@@ -604,7 +636,7 @@ class AvLabels:
             ##################
             # Suffix removal #
             ##################
-            label = self.__remove_suffixes(av_name, label)
+            label = self._remove_suffixes(av_name, label)
 
             ########################################################
             # Tokenization and tagging                             #
@@ -619,7 +651,7 @@ class AvLabels:
             if self.aliasdetect:
                 expanded_tags = tags
             else:
-                expanded_tags = self.__expand(tags)
+                expanded_tags = self._expand(tags)
 
             ########################################################
             # Stores information that relates AV vendors with tags #

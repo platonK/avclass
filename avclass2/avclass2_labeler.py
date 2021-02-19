@@ -122,14 +122,7 @@ def main(args):
     for ifile in ifile_l:
         # Open file
         if args.gzip:
-            # Open gzip file and read fist byte to trigger any potential errors
-            # Peek does not change the file position of fd
-            try:
-                fd = gzip.open(ifile, 'r')
-                fd.peek(1)
-            except gzip.BadGzipFile:
-                sys.stderr.write('[-] Ignoring bad gzip file: %s\n' % ifile)
-                continue
+            fd = gzip.open(ifile, 'rt')
         else:
             fd = open(ifile, 'r')
 
@@ -362,6 +355,9 @@ def main(args):
                 yn = n1
             f = float(c) / float(xn)
             finv = float(c) / float(yn)
+            if args.path:
+                x = av_labels.taxonomy.get_path(x)
+                y = av_labels.taxonomy.get_path(y)
             alias_fd.write("%s\t%s\t%d\t%d\t%d\t%0.2f\t%0.2f\n" % (
                 x, y, xn, yn, c, f, finv))
         # Close alias file
@@ -389,12 +385,12 @@ if __name__=='__main__':
     argparser.add_argument('-lbdir',
         help='existing directory with simplified JSON reports')
 
+    argparser.add_argument('-vt3', action='store_true',
+        help='input are VT v3 files')
+
     argparser.add_argument('-gz', '--gzip',
         help='file with JSON reports is gzipped',
         action='store_true')
-
-    argparser.add_argument('-vt3', action='store_true',
-        help='input are VT v3 files')
 
     argparser.add_argument('-gt',
         help='file with ground truth. '
