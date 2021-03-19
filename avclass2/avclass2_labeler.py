@@ -424,6 +424,10 @@ if __name__=='__main__':
         action='store_true',
         help='if used each sample is classified as PUP or not')
 
+    argparser.add_argument('-dates',
+        action='store_true',
+        help='outputs scan and first seen dates, if present in JSON report')
+
     argparser.add_argument('-p', '--path',
         help='output.full path for tags',
         action='store_true')
