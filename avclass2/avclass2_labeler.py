@@ -132,9 +132,6 @@ def main(args):
         # Process all lines in file
         for line in fd:
 
-            if args.gzip:
-                line = line.decode('utf-8')
-
             # If blank line, skip
             if line == '\n':
                 continue
@@ -149,7 +146,7 @@ def main(args):
             vt_rep = json.loads(line)
 
             # Extract sample info
-            sample_info = get_sample_info(vt_rep)
+            sample_info = get_sample_info(vt_rep, args.dates)
 
             # If no sample info, log error and continue
             if sample_info is None:
@@ -232,6 +229,17 @@ def main(args):
                 else:
                     is_pup_str =  ""
 
+                # Add dates, if requested
+                if args.dates:
+                    if sample_info.scan_date:
+                        scan_date_str = "\t%s" % sample_info.scan_date
+                    else:
+                        scan_date_str = "\t"
+                    if sample_info.first_seen:
+                        first_seen_str = "\t%s" % sample_info.first_seen
+                    else:
+                        first_seen_str = "\t"
+
                 # Select family for sample if needed,
                 # i.e., for compatibility mode or for ground truth
                 if args.c or args.gt:
@@ -262,9 +270,15 @@ def main(args):
                         tag_str = format_tag_pairs(tags, av_labels.taxonomy)
                     else:
                         tag_str = format_tag_pairs(tags)
-                    sys.stdout.write('%s\t%d\t%s%s%s%s\n' %
-                                     (name, vt_count, tag_str, gt_family,
-                                      is_pup_str, vtt))
+                    if args.dates:
+                        sys.stdout.write('%s\t%d\t%s%s%s%s%s%s\n' %
+                                         (name, vt_count, tag_str, gt_family,
+                                          is_pup_str, vtt, scan_date_str,
+                                          first_seen_str))
+                    else:
+                        sys.stdout.write('%s\t%d\t%s%s%s%s\n' %
+                                         (name, vt_count, tag_str, gt_family,
+                                          is_pup_str, vtt))
                 else:
                     sys.stdout.write('%s\t%s%s%s\n' %
                                      (name, fam, gt_family, is_pup_str))

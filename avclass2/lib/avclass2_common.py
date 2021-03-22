@@ -7,6 +7,7 @@ import sys
 import re
 import string
 import logging
+from datetime import datetime
 from collections import OrderedDict as OrdDict
 from collections import namedtuple
 from operator import itemgetter, attrgetter
@@ -21,7 +22,8 @@ platform_prefix = "FILE:os:"
 uncategorized_cat  = "UNC"
 
 SampleInfo = namedtuple('SampleInfo', 
-                        ['md5', 'sha1', 'sha256', 'labels', 'vt_tags'])
+                        ['md5', 'sha1', 'sha256', 'labels', 'vt_tags',
+                         'scan_date', 'first_seen'])
 
 # AVs to use in suffix removal
 suffix_removal_av_set = {'Norman', 'Avast', 'Avira', 'Kaspersky',
@@ -412,11 +414,13 @@ class AvLabels:
                           vt_rep['av_labels'], [])
 
     @staticmethod
-    def get_sample_info_vt_v2(vt_rep):
+    def get_sample_info_vt_v2(vt_rep, dates=False):
         '''Parse and extract sample information from JSON line
            Returns a SampleInfo named tuple
         '''
         label_pairs = []
+        scan_date = None
+        first_seen = None
         # Obtain scan results, if available
         try:
             scans = vt_rep['scans']
@@ -425,6 +429,12 @@ class AvLabels:
             sha256 = vt_rep['sha256']
         except KeyError:
             return None
+        # Obtain dates if requested
+        if dates:
+            if 'first_seen' in vt_rep.keys():
+                first_seen = vt_rep['first_seen']
+            if 'scan_date' in vt_rep.keys():
+                scan_date = vt_rep['scan_date']
         # Obtain labels from scan results
         for av, res in scans.items():
             if res['detected']:
@@ -436,10 +446,11 @@ class AvLabels:
         # Obtain VT tags, if available
         vt_tags = vt_rep.get('tags', [])
 
-        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags)
+        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags, scan_date,
+                          first_seen)
 
     @staticmethod
-    def get_sample_info_vt_v3(vt_rep):
+    def get_sample_info_vt_v3(vt_rep, dates=False):
         '''Parse and extract sample information from JSON line
            Returns a SampleInfo named tuple
         '''
@@ -449,6 +460,8 @@ class AvLabels:
         if 'data' in vt_rep:
             vt_rep = vt_rep['data']
         label_pairs = []
+        scan_date = None
+        first_seen = None
         # Obtain scan results, if available
         try:
             scans = vt_rep['attributes']['last_analysis_results']
@@ -457,6 +470,16 @@ class AvLabels:
             sha256 = vt_rep['attributes']['sha256']
         except KeyError:
             return None
+        # Obtain dates if requested
+        if dates:
+            if 'first_submission_date' in vt_rep['attributes'].keys():
+                fseen_epoch = vt_rep['attributes']['first_submission_date']
+                fseen_dt = datetime.fromtimestamp(fseen_epoch)
+                first_seen = fseen_dt.strftime('%Y-%m-%d %H:%M:%S')
+            if 'last_submission_date' in vt_rep['attributes'].keys():
+                scan_date_epoch = vt_rep['attributes']['last_submission_date']
+                scan_date_dt = datetime.fromtimestamp(scan_date_epoch)
+                scan_date = scan_date_dt.strftime('%Y-%m-%d %H:%M:%S')
         # Obtain labels from scan results
         for av, res in scans.items():
             label = res['result']
@@ -468,7 +491,8 @@ class AvLabels:
         # Obtain VT tags, if available
         vt_tags = vt_rep['attributes'].get('tags', [])
 
-        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags)
+        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags, first_seen,
+                          scan_date)
 
     @staticmethod
     def is_pup(tag_pairs, taxonomy):
