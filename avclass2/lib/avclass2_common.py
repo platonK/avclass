@@ -476,8 +476,8 @@ class AvLabels:
                 fseen_epoch = vt_rep['attributes']['first_submission_date']
                 fseen_dt = datetime.fromtimestamp(fseen_epoch)
                 first_seen = fseen_dt.strftime('%Y-%m-%d %H:%M:%S')
-            if 'last_submission_date' in vt_rep['attributes'].keys():
-                scan_date_epoch = vt_rep['attributes']['last_submission_date']
+            if 'last_analysis_date' in vt_rep['attributes'].keys():
+                scan_date_epoch = vt_rep['attributes']['last_analysis_date']
                 scan_date_dt = datetime.fromtimestamp(scan_date_epoch)
                 scan_date = scan_date_dt.strftime('%Y-%m-%d %H:%M:%S')
         # Obtain labels from scan results
