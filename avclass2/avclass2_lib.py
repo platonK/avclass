@@ -63,7 +63,7 @@ def extract_avclass_labels(vt_rep, vtapi, av_file=None):
         get_sample_info = av_labels.get_sample_info_vt_v3
     elif vtapi == 'v2':
         get_sample_info = av_labels.get_sample_info_vt_v2
-    sample_info = get_sample_info(vt_rep)
+    sample_info = get_sample_info(vt_rep, dates=True)
 
     if sample_info is None:
         return AVCInfo(None, None, None, None, None, None,
