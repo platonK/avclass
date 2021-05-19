@@ -491,8 +491,8 @@ class AvLabels:
         # Obtain VT tags, if available
         vt_tags = vt_rep['attributes'].get('tags', [])
 
-        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags, first_seen,
-                          scan_date)
+        return SampleInfo(md5, sha1, sha256, label_pairs, vt_tags, scan_date,
+                          first_seen)
 
     @staticmethod
     def is_pup(tag_pairs, taxonomy):
