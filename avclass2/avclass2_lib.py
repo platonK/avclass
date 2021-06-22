@@ -51,13 +51,16 @@ def format_tag_pairs(tags, taxonomy=None):
     return out
 
 
-def extract_avclass_labels(vt_rep, vtapi, av_file=None):
+def create_av_labels_object(av_file=None):
+    # Create AvLabels object
+    return AvLabels(default_tag_file, default_exp_file,
+                    default_tax_file, av_file, False)
+
+
+def extract_avclass_labels(av_labels, vt_rep, vtapi):
     '''
     Given a VT report it returns the AVClass labels
     '''
-    # Create AvLabels object
-    av_labels = AvLabels(default_tag_file, default_exp_file, default_tax_file,
-                         av_file, False)
 
     if vtapi == 'v3':
         get_sample_info = av_labels.get_sample_info_vt_v3
