@@ -176,7 +176,7 @@ def main(args):
             # And print them. 
             try:
                 av_tmp = av_labels.get_sample_tags(sample_info)
-                tags = av_labels.rank_tags(av_tmp)
+                tags = av_labels.rank_tags(av_tmp, threshold=args.conf_thres)
 
                 # AV VENDORS PER TOKEN
                 if args.avtags:
@@ -429,6 +429,12 @@ if __name__=='__main__':
 
     argparser.add_argument('-av',
         help='file with list of AVs to use')
+
+    argparser.add_argument('-conf_thres',
+        type=int,
+        default=1,
+        help='Filter tags found in less or equal number of AV engines. '
+             'Default: 1')
 
     argparser.add_argument('-avtags',
         help='extracts tags per av vendor',
